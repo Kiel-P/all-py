@@ -77,7 +77,7 @@ def get_geoip_info(ip):
 
 
 def check_vless_proxy(proxy_data, timeout=3):
-    """Fungsi ini mengetes apakah Proxy IP benar-benar bisa meneruskan trafik WebSocket (VLESS/Trojan)"""
+    """Mengetes koneksi WebSocket/CDN reverse proxy agar akurat untuk VLESS/Trojan"""
     if not proxy_data:
         return None
 
@@ -85,7 +85,6 @@ def check_vless_proxy(proxy_data, timeout=3):
     port = proxy_data["port"]
     display_ip = proxy_data["display_ip"]
 
-    # Mengetes koneksi Reverse Proxy ke Cloudflare CDN
     test_url = f"http://{display_ip}:{port}/"
     headers = {
         "Host": "speed.cloudflare.com",
@@ -98,17 +97,16 @@ def check_vless_proxy(proxy_data, timeout=3):
         req = urllib.request.Request(test_url, headers=headers)
         with urllib.request.urlopen(req, timeout=timeout) as response:
             status_code = response.getcode()
-            # Menerima status 101 (Switching Protocols), 200, 100, atau 400 khusus response CDN Proxy
             if status_code in [101, 200, 100, 400, 403]:
                 country = proxy_data["preset_country"]
                 isp = proxy_data["preset_isp"]
                 city = "N/A"
 
-                if not country or not isp:
-                    geo_country, geo_city, geo_isp = get_geoip_info(ip_raw)
-                    country = country if country else geo_country
-                    isp = isp if isp else geo_isp
-                    city = geo_city
+                # Ambil GeoIP lengkap
+                geo_country, geo_city, geo_isp = get_geoip_info(ip_raw)
+                country = country if country else geo_country
+                isp = isp if isp else geo_isp
+                city = geo_city
 
                 proxy_addr = f"{display_ip}:{port}"
                 csv_format = f"{display_ip},{port},{country},{isp}"
@@ -121,17 +119,15 @@ def check_vless_proxy(proxy_data, timeout=3):
                     "csv_format": csv_format,
                 }
     except urllib.error.HTTPError as e:
-        # Beberapa Proxy IP merespons 400 Bad Request / 101 WebSocket Upgrade saat dites header Cloudflare
         if e.code in [101, 400, 403]:
             country = proxy_data["preset_country"]
             isp = proxy_data["preset_isp"]
             city = "N/A"
 
-            if not country or not isp:
-                geo_country, geo_city, geo_isp = get_geoip_info(ip_raw)
-                country = country if country else geo_country
-                isp = isp if isp else geo_isp
-                city = geo_city
+            geo_country, geo_city, geo_isp = get_geoip_info(ip_raw)
+            country = country if country else geo_country
+            isp = isp if isp else geo_isp
+            city = geo_city
 
             proxy_addr = f"{display_ip}:{port}"
             csv_format = f"{display_ip},{port},{country},{isp}"
@@ -159,9 +155,7 @@ def run_checker(raw_lines):
         print("\n❌ Tidak ada IP/proxy berformat valid yang bisa diproses.")
         return
 
-    print(
-        f"\n⏳ Memulai pengecekan proxy. {total} IP...\n"
-    )
+    print(f"\n⏳ Memulai pengecekan proxy {total} IP...\n")
 
     live_results = []
 
@@ -190,7 +184,8 @@ def run_checker(raw_lines):
     time_str = now.strftime("%H:%M:%S WIB")
     date_str = now.strftime("%d %B %Y")
 
-    print("\n" + "=" * 50)
+    # Output persis sesuai permintaan
+    print("\n=================================================")
     print("📊 HASIL CHECK PROXY")
     print("===================================")
 
@@ -203,22 +198,25 @@ def run_checker(raw_lines):
     else:
         print("❌ Tidak ada proxy yang LIVE.\n")
 
-    print("-----------------------------------")
+    print("==================================================")
+    print("HASIL PROXY LIVE (🌐):")
+    print("===================================")
+
+    if live_results:
+        csv_list = [item["csv_format"] for item in live_results]
+        output_csv = "\n".join(csv_list)
+        print(output_csv)
+    else:
+        print("❌ Tidak ada proxy LIVE.")
+
+    print("\n-----------------------------------")
     print(f"📊 Total LIVE: {len(live_results)}/{total}")
     print(f"⏰ time : {time_str}")
     print(f"📅 date : {date_str}")
     print(f"✍️ created by : {CREATED_BY}")
-    print("===================================\n")
+    print("==================================================")
 
     if live_results:
-        print("=" * 50)
-        print("HASIL PROXY LIVE (🌐):")
-        print("=" * 50)
-        csv_list = [item["csv_format"] for item in live_results]
-        output_csv = "\n".join(csv_list)
-        print(output_csv)
-        print("=" * 50)
-
         print("\nMau simpan hasil proxy LIVE ke file?")
         print("1. Ya")
         print("2. Tidak")
@@ -252,7 +250,7 @@ def main():
     print("   MULTI-MODE PROXY CHECKER        ")
     print("      • By. K I H E O •            ")
     print("===================================")
-    print("1. Mode Paste (Paste Langsung)")
+    print("1. Mode Tempel (Paste Langsung)")
     print("2. Mode File (.txt)")
     print("===================================")
 
