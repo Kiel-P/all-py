@@ -242,7 +242,7 @@ def run_checker(raw_lines):
 
             print(f"\n✅ Berhasil disimpan ke file: '{filename}'")
         else:
-            print("\nℹ️ Hasil tidak disimpan ke file.")
+            print("\nℹ️    Hasil tidak disimpan ke file.")
 
 
 def main():
