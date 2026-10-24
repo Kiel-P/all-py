@@ -63,7 +63,8 @@ def get_geoip_info(ip):
         req = urllib.request.Request(
             url, headers={"User-Agent": "Mozilla/5.0"}
         )
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        # Timeout dinaikkan agar tidak gagal saat cek massal
+        with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             if data.get("status") == "success":
                 return (
@@ -76,6 +77,7 @@ def get_geoip_info(ip):
     return "XX", "N/A", "Unknown ISP"
 
 
+# Timeout dinaikkan dari 3 menjadi 10 detik agar proxy yang sedikit lambat tetap terdeteksi LIVE
 def check_vless_proxy(proxy_data, timeout=3):
     """Mengetes koneksi WebSocket/CDN reverse proxy agar akurat untuk VLESS/Trojan"""
     if not proxy_data:
@@ -102,7 +104,6 @@ def check_vless_proxy(proxy_data, timeout=3):
                 isp = proxy_data["preset_isp"]
                 city = "N/A"
 
-                # Ambil GeoIP lengkap
                 geo_country, geo_city, geo_isp = get_geoip_info(ip_raw)
                 country = country if country else geo_country
                 isp = isp if isp else geo_isp
@@ -167,7 +168,7 @@ def run_checker(raw_lines):
         bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]",
     ) as pbar:
         with concurrent.futures.ThreadPoolExecutor(
-            max_workers=25
+            max_workers=5
         ) as executor:
             futures = [
                 executor.submit(check_vless_proxy, p) for p in parsed_list
@@ -184,7 +185,6 @@ def run_checker(raw_lines):
     time_str = now.strftime("%H:%M:%S WIB")
     date_str = now.strftime("%d %B %Y")
 
-    # Output persis sesuai permintaan
     print("\n=================================================")
     print("📊 HASIL CHECK PROXY")
     print("===================================")
@@ -240,58 +240,69 @@ def run_checker(raw_lines):
             with open(filename, "w", encoding="utf-8") as f:
                 f.write(output_csv)
 
-            print(f"\n✅ Berhasil disimpan ke file: '{filename}'")
+            print(f"\n✅ Berhasil disimpan ke file: '{filename}'\n")
         else:
-            print("\nℹ️    Hasil tidak disimpan ke file.")
+            print("\nℹ️    Hasil tidak disimpan ke file.\n")
+    else:
+        print("\n")
 
 
 def main():
-    print("===================================")
-    print("   MULTI-MODE PROXY CHECKER        ")
-    print("      • By. K I H E O •            ")
-    print("===================================")
-    print("1. Mode Tempel (Paste Langsung)")
-    print("2. Mode File (.txt)")
-    print("===================================")
+    # Menambahkan Loop while True agar program kembali ke menu awal
+    while True:
+        print("===================================")
+        print("   MULTI-MODE PROXY CHECKER        ")
+        print("      • By. K I H E O •            ")
+        print("===================================")
+        print("1. Mode Tempel (Paste Langsung)")
+        print("2. Mode File (.txt)")
+        print("0. Keluar") # Tambahan menu keluar
+        print("===================================")
 
-    choice = input("Pilih menu (1/2): ").strip()
-    raw_lines = []
+        choice = input("Pilih menu (1/2/0): ").strip()
+        raw_lines = []
 
-    if choice == "1":
-        print("\n--- MODE TEMPEL ---")
-        print(
-            "Tempel daftar IP di bawah ini (ketik 'RUN' atau Enter 2x untuk mulai):\n"
-        )
-        while True:
-            line = input().strip()
-            if line.upper() == "RUN" or (line == "" and raw_lines):
-                break
-            if line:
-                raw_lines.append(line)
+        if choice == "0":
+            print("\n👋 Keluar dari program. Terima kasih!")
+            break
 
-    elif choice == "2":
-        print("\n--- MODE FILE .TXT ---")
-        file_path = (
-            input("Masukkan nama/path file (misal: proxies.txt): ")
-            .strip()
-            .strip('"')
-            .strip("'")
-        )
-        if not os.path.exists(file_path):
-            print(f"\n❌ File '{file_path}' tidak ditemukan!")
-            return
-        try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                raw_lines = f.readlines()
-        except Exception as e:
-            print(f"❌ Gagal membaca file: {e}")
-            return
-    else:
-        print("\n❌ Pilihan tidak valid.")
-        return
+        elif choice == "1":
+            print("\n--- MODE TEMPEL ---")
+            print(
+                "Tempel daftar IP di bawah ini (ketik 'RUN' atau Enter 2x untuk mulai):\n"
+            )
+            while True:
+                line = input().strip()
+                if line.upper() == "RUN" or (line == "" and raw_lines):
+                    break
+                if line:
+                    raw_lines.append(line)
 
-    if raw_lines:
-        run_checker(raw_lines)
+        elif choice == "2":
+            print("\n--- MODE FILE .TXT ---")
+            file_path = (
+                input("Masukkan nama/path file (misal: proxies.txt): ")
+                .strip()
+                .strip('"')
+                .strip("'")
+            )
+            if not os.path.exists(file_path):
+                print(f"\n❌ File '{file_path}' tidak ditemukan!\n")
+                continue # Kembali ke menu awal
+            try:
+                with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                    raw_lines = f.readlines()
+            except Exception as e:
+                print(f"❌ Gagal membaca file: {e}\n")
+                continue # Kembali ke menu awal
+        else:
+            print("\n❌ Pilihan tidak valid.\n")
+            continue # Kembali ke menu awal jika salah pilih
+
+        if raw_lines:
+            run_checker(raw_lines)
+            # Memberi jarak sebelum memunculkan menu lagi
+            print("\n" + "="*50 + "\n") 
 
 
 if __name__ == "__main__":
